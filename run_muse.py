@@ -52,11 +52,13 @@ def cleanup_aligned_folder(emb_dir):
 def setup_muse():
     """Clone MUSE, patch for PyTorch 2.6, download dictionaries"""
     
+    # Clone MUSE repo
     if not os.path.exists('MUSE'):
         print(f"{Fore.CYAN}Cloning MUSE repository...{Style.RESET_ALL}")
         subprocess.run(['git', 'clone', 'https://github.com/facebookresearch/MUSE.git'])
     
     os.chdir('MUSE')
+    
     
     # Patch for PyTorch 2.6 compatibility
     trainer_file = 'src/trainer.py'
@@ -65,6 +67,7 @@ def setup_muse():
     with open(trainer_file, 'r', encoding='utf-8') as f:
         content = f.read()
     
+    # Fix pytorch error
     content = content.replace(
         'to_reload = torch.from_numpy(torch.load(path))',
         'to_reload = torch.from_numpy(torch.load(path, weights_only=False))'
@@ -73,6 +76,8 @@ def setup_muse():
     with open(trainer_file, 'w', encoding='utf-8') as f:
         f.write(content)
     print(f"{Fore.GREEN}[OK] Patched trainer.py{Style.RESET_ALL}")
+    
+    
     
     # Download bilingual dictionaries
     dict_dir = 'data/crosslingual/dictionaries'
