@@ -100,6 +100,10 @@ def get_vocab(sentences: pd.Series, pattern: re.Pattern, max_vocab: Optional[int
         top_words = [word for word, _ in most_common]
         return sorted(top_words)
 
+def build_vocab_dict(words: List[str]) -> Dict[str, int]:
+    '''Create word-to-index mapping for O(1) lookup'''
+    return {word: idx for idx, word in enumerate(words)}
+
 
 def tokenize_corpus(series: pd.Series, pattern: re.Pattern) -> List[List[str]]:
     """Tokenize corpus into list of tokenized sentences"""
