@@ -61,21 +61,33 @@ def setup_muse():
     
     
     # Patch for PyTorch 2.6 compatibility
+    # fix trainer
     trainer_file = 'src/trainer.py'
     print(f"{Fore.YELLOW}Patching trainer.py for PyTorch 2.6...{Style.RESET_ALL}")
     
     with open(trainer_file, 'r', encoding='utf-8') as f:
         content = f.read()
-    
-    # Fix pytorch error
     content = content.replace(
         'to_reload = torch.from_numpy(torch.load(path))',
         'to_reload = torch.from_numpy(torch.load(path, weights_only=False))'
     )
-    
     with open(trainer_file, 'w', encoding='utf-8') as f:
         f.write(content)
     print(f"{Fore.GREEN}[OK] Patched trainer.py{Style.RESET_ALL}")
+    
+   # fix evaluator
+    evaluate_file = 'src/evaluator.py'
+    print(f"{Fore.YELLOW}Patching evaluator.py for PyTorch 2.6...{Style.RESET_ALL}")
+    with open(evaluate_file, 'r', encoding='utf-8') as f:
+        content = f.read()
+    content = content.replace(
+        'torch.load(path)',
+        'torch.load(path, weights_only=False)'
+    )
+
+    with open(evaluate_file, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print(f"{Fore.GREEN}[OK] Patched evaluator.py{Style.RESET_ALL}")
     
     
     
