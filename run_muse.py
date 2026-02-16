@@ -6,6 +6,7 @@ import sys
 import urllib.request
 import shutil
 from colorama import init, Fore, Style
+import time
 
 init(autoreset=True)
 
@@ -28,6 +29,9 @@ def cleanup_aligned_folder(emb_dir):
     if not os.path.exists(aligned_dir):
         return
     
+    # Give the training process time to release file handles
+    time.sleep(1)  # Wait 1 second before cleanup
+
     # Find subfolders
     subfolders = [f for f in os.listdir(aligned_dir) 
                   if os.path.isdir(os.path.join(aligned_dir, f))]
@@ -75,19 +79,20 @@ def setup_muse():
         f.write(content)
     print(f"{Fore.GREEN}[OK] Patched trainer.py{Style.RESET_ALL}")
     
-   # fix evaluator
-    evaluate_file = 'src/evaluator.py'
-    print(f"{Fore.YELLOW}Patching evaluator.py for PyTorch 2.6...{Style.RESET_ALL}")
+   # fix utils
+    evaluate_file = 'src/utils.py'
+    print(f"{Fore.YELLOW}Patching utils.py for PyTorch 2.6...{Style.RESET_ALL}")
     with open(evaluate_file, 'r', encoding='utf-8') as f:
         content = f.read()
     content = content.replace(
-        'torch.load(path)',
-        'torch.load(path, weights_only=False)'
+    'torch.load(params.src_emb if source else params.tgt_emb)',
+    'torch.load(params.src_emb if source else params.tgt_emb, weights_only=False)'
     )
+
 
     with open(evaluate_file, 'w', encoding='utf-8') as f:
         f.write(content)
-    print(f"{Fore.GREEN}[OK] Patched evaluator.py{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}[OK] Patched utils.py{Style.RESET_ALL}")
     
     
     
@@ -172,7 +177,7 @@ def align_embeddings(embeddings, project_root):
 def evaluate_embeddings(embeddings, project_root):
     """Evaluate alignment quality with precision@k metrics"""
     
-    for emb_type, _, _, _ in embeddings:
+    for emb_type, _, _, emb_dim in embeddings:
         emb_dir = os.path.join(project_root, 'embeddings', emb_type)
         
         print(f"\n{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
@@ -186,7 +191,8 @@ def evaluate_embeddings(embeddings, project_root):
             '--src_emb', os.path.join(emb_dir, 'aligned', 'vectors-en.pth'),
             '--tgt_emb', os.path.join(emb_dir, 'aligned', 'vectors-fr.pth'),
             '--max_vocab', '200000',
-            '--cuda', 'False'
+            '--cuda', 'False',
+            '--emb_dim', str(emb_dim)
         ], f"Evaluating {emb_type}")
 
 
