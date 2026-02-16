@@ -10,12 +10,14 @@ import re
 from collections import Counter
 from typing import Dict, List, Tuple, Optional
 
-# Add MUSE to path
-sys.path.insert(0, './MUSE')
 
 
 def load_embeddings(emb_type: str = "w2v") -> Dict[str, any]:
     """Load aligned embeddings from MUSE output"""
+    # Add MUSE to path
+    sys.path.insert(0, './MUSE')
+    
+    # Load embeddings
     en = torch.load(f"./embeddings/{emb_type}/aligned/vectors-en.pth", weights_only=False)
     fr = torch.load(f"./embeddings/{emb_type}/aligned/vectors-fr.pth", weights_only=False)
     return {
