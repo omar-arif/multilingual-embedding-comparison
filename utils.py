@@ -12,8 +12,11 @@ from typing import Dict, List, Tuple, Optional
 
 
 
+##################################### embedding loading
+
 def load_embeddings(emb_type: str = "w2v") -> Dict[str, any]:
     """Load aligned embeddings from MUSE output"""
+    
     # Add MUSE to path
     sys.path.insert(0, './MUSE')
     
@@ -24,20 +27,93 @@ def load_embeddings(emb_type: str = "w2v") -> Dict[str, any]:
         "en_words": en["dico"],
         "en_vecs": en["vectors"].cpu().numpy(),
         "fr_words": fr["dico"],
-        "fr_vecs": fr["vectors"].cpu().numpy()
+        "fr_vecs": fr["vectors"].cpu().numpy(),
+        "format": "muse"  # Identifier
+    }
+
+def load_embeddings_vec(emb_type: str = "w2v") -> Dict[str, any]:
+    """Load ORIGINAL (non-aligned) embeddings from .vec files"""
+    
+    file_map = {
+        "ohe": ("english_onehot.vec", "french_onehot.vec"),
+        "tfidf": ("english_tfidf.vec", "french_tfidf.vec"),
+        "w2v": ("english_word2vec.vec", "french_word2vec.vec"),
+        "ft": ("english_fasttext.vec", "french_fasttext.vec"),
+        "glv": ("english_glove.vec", "french_glove.vec")
+    }
+    
+    en_file, fr_file = file_map.get(emb_type, (f"english_{emb_type}.vec", f"french_{emb_type}.vec"))
+    
+    en_kv = KeyedVectors.load_word2vec_format(f"./embeddings/{emb_type}/{en_file}")
+    fr_kv = KeyedVectors.load_word2vec_format(f"./embeddings/{emb_type}/{fr_file}")
+    
+    return {
+        "en_words": en_kv,
+        "en_vecs": en_kv.vectors,
+        "fr_words": fr_kv,
+        "fr_vecs": fr_kv.vectors,
+        "format": "gensim"
     }
 
 
-def cosine_sim(word1: str, word2: str, emb: Dict[str, any]) -> Optional[float]:
-    """Compute cosine similarity between English word1 and French word2"""
+##################################### helper function for classification
+
+def get_word_vector(word: str, word_dict, word_vecs: np.ndarray, emb_format: str = "muse") -> Optional[np.ndarray]:
+    """Get vector for a single word (handles both formats)"""
     try:
-        idx1 = emb["en_words"].index(word1)
-        idx2 = emb["fr_words"].index(word2)
-        vec1 = emb["en_vecs"][idx1].reshape(1, -1)
-        vec2 = emb["fr_vecs"][idx2].reshape(1, -1)
+        if emb_format == "muse":
+            idx = word_dict.index(word)
+            return word_vecs[idx]
+        elif emb_format == "gensim":
+            return word_dict[word]
+        else:
+            return None
+    except:
+        return None
+
+##################################### analysis helper functions
+
+def cosine_sim(word1: str, word2: str, emb: Dict[str, any], lang1: str = 'en', lang2: str = 'fr') -> Optional[float]:
+    """General cosine similarity (cross-lingual or same-language)
+    
+    Args:
+        word1: First word
+        word2: Second word
+        emb: Embeddings dict from load_embeddings() or load_embeddings_vec()
+        lang1: Language of word1 ('en' or 'fr')
+        lang2: Language of word2 ('en' or 'fr')
+    
+    Examples:
+        cosine_sim('cat', 'chat', emb)              # Cross-lingual EN→FR
+        cosine_sim('cat', 'dog', emb, 'en', 'en')   # Same-language EN
+    """
+    
+    try:
+        words1 = emb[f"{lang1}_words"]
+        words2 = emb[f"{lang2}_words"]
+        vecs1 = emb[f"{lang1}_vecs"]
+        vecs2 = emb[f"{lang2}_vecs"]
+        
+        # Handle MUSE Dictionary format
+        if emb.get("format") == "muse":
+            idx1 = words1.index(word1)
+            idx2 = words2.index(word2)
+            vec1 = vecs1[idx1].reshape(1, -1)
+            vec2 = vecs2[idx2].reshape(1, -1)
+        
+        # Handle Gensim KeyedVectors format
+        elif emb.get("format") == "gensim":
+            vec1 = words1[word1].reshape(1, -1)
+            vec2 = words2[word2].reshape(1, -1)
+        
+        # Unknown format
+        else:
+            return None
+        
         return cosine_similarity(vec1, vec2)[0][0]
     except:
         return None
+
 
 
 def plot_pca(emb: Dict[str, any], word_pairs: List[Tuple[str, str]], title: str = "PCA Visualization") -> None:
@@ -81,6 +157,7 @@ def plot_pca(emb: Dict[str, any], word_pairs: List[Tuple[str, str]], title: str 
     plt.tight_layout()
     plt.show()
 
+##################################### text preprocessing
 
 def get_vocab(sentences: pd.Series, pattern: re.Pattern, max_vocab: Optional[int] = None) -> List[str]:
     """Get sorted unique vocabulary from text"""
